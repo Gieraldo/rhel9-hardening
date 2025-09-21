@@ -10,6 +10,7 @@
         path: /runner/project
         dest: /tmp/rhel-hardening.tar.gz
         format: gz
+      become: false
 
     - name: Copy archive to target hosts
       ansible.builtin.copy:
@@ -21,8 +22,8 @@
       ansible.builtin.file:
         path: /var/lib/awx/projects/rhel-hardening
         state: directory
-        owner: izenouser
-        group: izenouser
+        owner: ec2-user
+        group: ec2-user
         mode: '0755'
 
     - name: Extract archive on target hosts
@@ -30,8 +31,8 @@
         src: /tmp/rhel-hardening.tar.gz
         dest: /var/lib/awx/projects/rhel-hardening
         remote_src: yes
-        owner: izenouser
-        group: izenouser
+        owner: ec2-user
+        group: ec2-user
         extra_opts: [--strip-components=1]
 
     - name: Ensure ownership and permissions
@@ -39,8 +40,8 @@
         path: /var/lib/awx/projects/rhel-hardening
         state: directory
         recurse: true
-        owner: izenouser
-        group: izenouser
+        owner: ec2-user
+        group: ec2-user
         mode: '0755'
     
     - name: Remove archive from target hosts
@@ -105,7 +106,7 @@
     
     
     rhel9cis_sudoers_exclude_nopasswd_list:
-      - izenouser
+      - ec2-user
     
     skip_reboot: true
     change_requires_reboot: false
