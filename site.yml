@@ -1,0 +1,124 @@
+---
+- name: Deploy rhel-hardening to target hosts
+  hosts: "{{ targets }}"
+  become: true
+  tasks:
+
+    - name: Create archive of local project folder
+      delegate_to: localhost
+      archive:
+        path: /runner/project
+        dest: /tmp/rhel-hardening.tar.gz
+        format: gz
+
+    - name: Copy archive to target hosts
+      ansible.builtin.copy:
+        src: /tmp/rhel-hardening.tar.gz
+        dest: /tmp/rhel-hardening.tar.gz
+        mode: '0644'
+
+    - name: Ensure destination directory exists
+      ansible.builtin.file:
+        path: /var/lib/awx/projects/rhel-hardening
+        state: directory
+        owner: izenouser
+        group: izenouser
+        mode: '0755'
+
+    - name: Extract archive on target hosts
+      ansible.builtin.unarchive:
+        src: /tmp/rhel-hardening.tar.gz
+        dest: /var/lib/awx/projects/rhel-hardening
+        remote_src: yes
+        owner: izenouser
+        group: izenouser
+        extra_opts: [--strip-components=1]
+
+    - name: Ensure ownership and permissions
+      ansible.builtin.file:
+        path: /var/lib/awx/projects/rhel-hardening
+        state: directory
+        recurse: true
+        owner: izenouser
+        group: izenouser
+        mode: '0755'
+    
+    - name: Remove archive from target hosts
+      ansible.builtin.file:
+        path: /tmp/rhel-hardening.tar.gz
+        state: absent
+
+- name: Apply ansible-lockdown hardening
+  hosts: "{{ targets }}"
+  become: true
+  vars:
+    # === CUSTOMER COMPLIANCE OVERRIDES ===
+    # Based on customer compliance matrix
+    
+    # 1.3.1.4 & 1.3.1.5: SELinux disabled per customer requirement
+    #rhel9cis_selinux_disable: false
+    rhel9cis_rule_1_3_1_4: false    # SELinux mode not disabled
+    rhel9cis_rule_1_3_1_5: true    # SELinux permissive mode
+    rhel9cis_rule_1_3_1_6: false    # No unconfined services (N/A when disabled)
+    
+    # 1.4.1: Bootloader password not required (VM environment)
+    rhel9cis_rule_1_4_1: false      # Bootloader password
+    
+    # 1.2.1.3: repo_gpgcheck disabled (internal repos)
+    rhel9cis_rule_1_2_1_3: false    # repo_gpgcheck globally activated
+    
+    # Section 4: ALL Firewall controls disabled per customer
+    rhel9cis_section4: false         # Complete firewall section
+    
+    # 2.2.4: Telnet client required for port testing
+    rhel9cis_rule_2_2_4: false      # Keep telnet client
+    
+    # 5.2.4: Sudo password requirement disabled (automation/PAM)
+    rhel9cis_rule_5_2_4: false      # Users must provide password for escalation
+    
+    # Section 6.1: AIDE disabled (using MSS Deep Security)
+    rhel9cis_rule_6_1_1: false      # AIDE installation
+    rhel9cis_rule_6_1_2: false      # Filesystem integrity checking
+    rhel9cis_rule_6_1_3: false      # Cryptographic mechanisms for audit tools
+    
+    # 6.2.2.x & 6.2.3.x: Journald/rsyslog configs (using ELK)
+    rhel9cis_rule_6_2_2_1_1: false  # systemd-journal-remote
+    rhel9cis_rule_6_2_2_1_2: false  # journal-upload authentication
+    rhel9cis_rule_6_2_2_1_3: false  # journal-upload enabled
+    rhel9cis_rule_6_2_2_1_4: false  # journal-remote service
+    rhel9cis_rule_6_2_2_2: false    # ForwardToSyslog
+    rhel9cis_rule_6_2_2_3: false    # journald Compress
+    rhel9cis_rule_6_2_2_4: false    # journald Storage
+    
+    # rsyslog section (using ELK instead)
+    rhel9cis_rule_6_2_3_1: false    # rsyslog installed
+    rhel9cis_rule_6_2_3_2: false    # rsyslog service enabled
+    rhel9cis_rule_6_2_3_3: false    # journald to rsyslog
+    rhel9cis_rule_6_2_3_4: false    # rsyslog file creation mode
+    rhel9cis_rule_6_2_3_5: false    # rsyslog logging configured
+    rhel9cis_rule_6_2_3_6: false    # rsyslog remote log host
+    rhel9cis_rule_6_2_3_7: false    # rsyslog not receive remote
+    rhel9cis_rule_6_2_3_8: false    # rsyslog logrotate
+    
+    # 6.3.2.3: System shutdown when audit full (use rotation instead)
+    rhel9cis_rule_6_3_2_3: false    # System disabled when audit logs full
+    
+    
+    rhel9cis_sudoers_exclude_nopasswd_list:
+      - izenouser
+    
+    skip_reboot: true
+    change_requires_reboot: false
+    rhel9cis_disruption_high: false
+    
+  tasks:
+    - name: Ensure run_audit.sh scripts are executable
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0755'
+      loop:
+        - /var/lib/awx/projects/rhel-hardening/files/RHEL9-CIS-Audit/run_audit.sh
+        - /var/lib/awx/projects/rhel-hardening/files/RHEL9-CIS-Audit/RHEL9-CIS-Audit/run_audit.sh
+  
+  roles:
+    - role: "{{ playbook_dir }}"
