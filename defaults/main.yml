@@ -516,7 +516,7 @@ rhel9cis_rule_7_1_7: true
 rhel9cis_rule_7_1_8: true
 rhel9cis_rule_7_1_9: true
 rhel9cis_rule_7_1_10: true
-rhel9cis_rule_7_1_11: true
+rhel9cis_rule_7_1_11: false
 rhel9cis_rule_7_1_12: true
 rhel9cis_rule_7_1_13: true
 # 7.2 Local User and Group Settings
